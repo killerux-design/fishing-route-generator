@@ -131,7 +131,8 @@ const FishingRouteGenerator = () => {
     speedVariation: 0.7,
     smoothness: 0.8,
     numberOfRoutes: 1,
-    connected: false
+    connected: false,
+    lineWidth: 5
   });
 
   // Speed to color mapping (blue = slow, red = fast)
@@ -287,7 +288,7 @@ const FishingRouteGenerator = () => {
     if (route.points.length < 2) return;
     
     // Calculate line width based on canvas size for high fidelity
-    const baseWidth = Math.max(2, Math.round(settings.canvasWidth / 200));
+    const baseWidth = settings.lineWidth; // Use the user setting directly
     ctx.lineWidth = baseWidth;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -338,14 +339,28 @@ const FishingRouteGenerator = () => {
     setIsGenerating(false);
   };
 
-  // Download canvas as PNG
-  const downloadImage = () => {
-    const canvas = canvasRef.current;
-    const link = document.createElement('a');
-    link.download = 'fishing-route.png';
-    link.href = canvas.toDataURL();
-    link.click();
-  };
+ // Download canvas as PNG
+const downloadImage = () => {
+  const canvas = canvasRef.current;
+  const originalCanvas = canvas;
+  
+  // Create a new canvas without background
+  const newCanvas = document.createElement('canvas');
+  newCanvas.width = originalCanvas.width;
+  newCanvas.height = originalCanvas.height;
+  const newCtx = newCanvas.getContext('2d');
+  
+  // Don't fill background - keep it transparent
+  // Redraw only the routes
+  routes.forEach(route => {
+    drawRoute(newCtx, route);
+  });
+  
+  const link = document.createElement('a');
+  link.download = 'fishing-route.png';
+  link.href = newCanvas.toDataURL('image/png');
+  link.click();
+};
 
   
   // Download as SVG
@@ -354,10 +369,9 @@ const FishingRouteGenerator = () => {
     
     // Create SVG content
     let svgContent = `<svg width="${settings.canvasWidth}" height="${settings.canvasHeight}" xmlns="http://www.w3.org/2000/svg">`;
-    svgContent += `<rect width="100%" height="100%" fill="#f8f9fa"/>`;
-    
+        
     // Calculate line width for SVG (same as canvas)
-    const baseWidth = Math.max(2, Math.round(settings.canvasWidth / 200));
+    const baseWidth = settings.lineWidth;
     
     routes.forEach(route => {
       if (route.points.length < 2) return;
@@ -474,6 +488,14 @@ const FishingRouteGenerator = () => {
                 label="Smoothness"
               />
 
+              <CustomSlider
+                min={1}
+                max={10}
+                value={settings.lineWidth}
+                onChange={(e) => setSettings(prev => ({ ...prev, lineWidth: parseInt(e.target.value) }))}
+                label="Line Width"
+              />
+
               <div>
                 <label className="block text-sm font-medium mb-1">Number of Routes</label>
                 <input
@@ -534,32 +556,12 @@ const FishingRouteGenerator = () => {
   </span>
 </button>
 
-            <button
-              onClick={downloadImage}
-              disabled={routes.length === 0}
-              className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-4 py-2 rounded flex items-center justify-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Download PNG
-            </button>
-
-            <button
-              onClick={downloadSVG}
-              disabled={routes.length === 0}
-              className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white px-4 py-2 rounded flex items-center justify-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Download SVG
-            </button>
-
-            <button
-              onClick={exportRouteData}
-              disabled={routes.length === 0}
-              className="w-full bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 text-white px-4 py-2 rounded flex items-center justify-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Export Data
-            </button>
+            <DropdownButton
+            disabled={routes.length === 0}
+            onDownloadPNG={downloadImage}
+            onDownloadSVG={downloadSVG}
+            onExportData={exportRouteData}
+            />  
           </div>
         </div>
 
@@ -569,7 +571,7 @@ const FishingRouteGenerator = () => {
             <canvas
               ref={canvasRef}
               className="max-w-full h-auto block"
-              style={{ width: '100%', height: 'auto' }}
+              style={{ width: '100%', height: 'auto', maxHeight: '70svh', objectFit: 'contain' }}
             />
           </div>
 
